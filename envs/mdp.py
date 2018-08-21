@@ -6,6 +6,11 @@ from gym import Env
 class MDP(Env):
 
     @property
+    def gamma(self) -> int:
+        """Discount factor"""
+        return self._gamma
+
+    @property
     def n_states(self) -> int:
         """The number of all (terminal and non-terminal) states: |S+|"""
         return self._n_states

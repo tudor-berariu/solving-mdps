@@ -5,6 +5,7 @@ from policies import Policy, UniformPolicy
 
 from algorithms.closed_form import cf_state_dist, cf_policy_eval
 from algorithms.closed_form import cf_policy_eval_linear_approx
+from algorithms.closed_form import cf_min_tderror_policy_eval
 from algorithms.dynamic_programming import dp_state_dist, dp_policy_eval
 from algorithms.error_functions import mean_squared_value_error
 from algorithms.online_algorithms import GradientMonteCarlo
@@ -47,7 +48,11 @@ def show_values(env: MDP, policy: Policy) -> None:
     features = np.array([[1,  0], [0, 1], [.25, -.75]])
     weight = cf_policy_eval_linear_approx(env, policy, features)
     w_values = features @ weight
-    print(w_values, error(w_values))
+    print("CF projection: ", w_values, error(w_values))
+
+    weight = cf_min_tderror_policy_eval(env, policy, features)
+    w_values = features @ weight
+    print("CF minTDerr: ", w_values, error(w_values))
 
     tabular = np.eye(env.n_nstates)
     weight = cf_policy_eval_linear_approx(env, policy, tabular)

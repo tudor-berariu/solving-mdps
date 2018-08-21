@@ -36,6 +36,8 @@ class ThreeStateEnv(MDP):
         self._rewards[C, GOOD_END] = 10.
         self._rewards[[A, B, C], BAD_END] = -1.
 
+        self._gamma = .99
+
         self._crt_state = None  # type: int
         self.seed()
 

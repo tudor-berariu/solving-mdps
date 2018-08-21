@@ -5,12 +5,18 @@ from envs import MDP
 from policies import Policy
 
 
-def cf_state_dist(env: MDP, policy: Policy,
-                  gamma: float = 1.0) -> np.ndarray:
+def cf_state_dist(env: MDP,
+                  policy: Policy) -> np.ndarray:
+    """Closed form solution for state occupancy:
+        - eta(s) = (I - gamma * T)^-1 h
+        - mu(s) = eta(s)/sum(eta)
+    """
     n_nstates = env.n_nstates
     init_state_dist, dynamics, _ = env.mdp
     trans = (dynamics[:, :, :n_nstates] * policy.probs[:, :, None]).sum(axis=1)
-    visits = la.inv(np.eye(n_nstates) - gamma * trans.T) @ init_state_dist
+    visits = la.inv(np.eye(n_nstates) - env.gamma * trans.T) @ init_state_dist
+    print(np.sum(visits))
+    print(1.0 / (1.0 - env.gamma))
     return visits / np.sum(visits)
 
 
@@ -27,7 +33,7 @@ def cf_policy_eval(env: MDP, policy: Policy,
 def cf_policy_eval_linear_approx(env: MDP,
                                  policy: Policy,
                                  features: np.ndarray,
-                                 gamma: float = 1.0):
+                                 gamma: float = 1.0) -> np.ndarray:
     assert features.shape[0] == env.n_nstates
     values = cf_policy_eval(env, policy, gamma)
     state_dist = cf_state_dist(env, policy, gamma)
@@ -35,20 +41,32 @@ def cf_policy_eval_linear_approx(env: MDP,
     return la.inv(w_feats @ features) @ w_feats @ values
 
 
-def cf_min_tderror_policy_eval(env: MDP,
+def cf_policy_eval_min_tderror(env: MDP,
                                policy: Policy,
                                features: np.ndarray,
-                               gamma: float = 1.0):
-    """
-    values = X @ w
-    A1 = gamma * gamma * X.transpose(0, 1) @ torch.diag(mu @ T) @ X
-    A2 = - gamma * X[:nn].transpose(0, 1) @ diagMu @ T @ X
-    A3 = - gamma * (T @ X).transpose(0, 1) @ diagMu @ X[:nn]
-    A4 = X[:nn].transpose(0, 1) @ diagMu @ X[:nn]
-    A = A1 + A2 + A3 + A4
+                               gamma: float = 1.0) -> np.ndarray:
+    assert features.shape[0] == env.n_nstates
+    _, dynamics, rewards = env.mdp
+    padding = np.zeros((env.n_states - env.n_nstates, features.shape[1]))
+    trans = (dynamics * policy.probs[:, :, None]).sum(axis=1)
+    nfeatures = features
+    features = np.concatenate((nfeatures, padding), axis=0)
+    ntrans = trans[:, :env.n_nstates]
+    mu = cf_state_dist(env, policy, gamma)
+    diag = np.diag(mu)
+    mut = diag @ ntrans
+    A = (gamma ** 2) * np.diag(mu @ ntrans) - gamma * (mut + mut.T) + diag
+    A = nfeatures.T @ A @ nfeatures
+    tr = trans * rewards
+    b = gamma * features.T @ tr.T @ mu
+    b -= (nfeatures.T @ np.diag(mu) @ tr).sum(axis=1)
+    return -la.inv(A) @ b
 
-    b = gamma * mu @ (T * R) @ X - diagMu @ (T * R) @ ones @ X[:nn]
-    grad = 2 * (A @ w + b)
-    """
 
-    raise NotImplementedError
+def cf_policy_eval_min_bellman(env: MDP,
+                               policy: Policy,
+                               features: np.ndarray,
+                               gamma: float = 1.0) -> np.ndarray:
+    _, dynamics, rewards = env.mdp
+    trans = (dynfomamics[:, :, :env.n_nstates] * policy.probs[:, :, None]).sum(axis=1)
+    xt = (gamma * trans - np.eye(env.n_nstates)) @ features
