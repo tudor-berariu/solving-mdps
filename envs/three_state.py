@@ -36,7 +36,7 @@ class ThreeStateEnv(MDP):
         self._rewards[C, GOOD_END] = 10.
         self._rewards[[A, B, C], BAD_END] = -1.
 
-        self._gamma = .99
+        self._gamma = 1
 
         self._crt_state = None  # type: int
         self.seed()
@@ -48,7 +48,7 @@ class ThreeStateEnv(MDP):
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
         assert self._crt_state < 3
         next_state_dist = self._dynamics[self._crt_state, action]
-        next_state = self.np_random.choice([0, 1, 2, 3, 4], p=next_state_dist)
+        next_state = self.np_random.choice(list(range(5)), p=next_state_dist)
         reward = self._rewards[self._crt_state, next_state]
         done = (next_state > 2)
         self._crt_state = next_state
